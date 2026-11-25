@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Petty Cash Tracker</title>
+  <style>
+    :root {
+      --bg: #f6f3ee;
+      --card: #ffffff;
+      --text: #2b2b2b;
+      --muted: #6b6b6b;
+      --line: #e4dfd6;
+      --accent: #1f6f5c;
+      --accent-text: #ffffff;
+      --warn: #b3261e;
+      --soft: #eef6f3;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1b1b1b;
+        --card: #262626;
+        --text: #ececec;
+        --muted: #a3a3a3;
+        --line: #3a3a3a;
+        --accent: #4fb89c;
+        --accent-text: #0f1f1a;
+        --warn: #ff8a80;
+        --soft: #1f2f2a;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 16px;
+      line-height: 1.45;
+    }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 1.6rem; margin: 4px 0 4px; }
+    h2 { font-size: 1.1rem; margin: 0 0 12px; }
+    .sub { color: var(--muted); margin: 0 0 16px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 12px;
+    }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 4px; }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      font-size: 1rem;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wide { grid-column: 1 / -1; }
+    button {
+      font-size: 1rem;
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: var(--accent-text);
+      cursor: pointer;
+    }
+    button.ghost { background: transparent; color: var(--accent); }
+    button.small { padding: 4px 10px; font-size: 0.85rem; }
+    button.danger { border-color: var(--warn); color: var(--warn); background: transparent; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .space { justify-content: space-between; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+    }
+    .stat { background: var(--soft); border-radius: 10px; padding: 12px; }
+    .stat .k { font-size: 0.85rem; color: var(--muted); }
+    .stat .v { font-size: 1.35rem; font-weight: 600; }
+    .stat .v.neg { color: var(--warn); }
+    .tablebox { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-size: 0.8rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+    td.num, th.num { text-align: right; white-space: nowrap; }
+    tfoot td { font-weight: 700; border-top: 2px solid var(--text); border-bottom: none; }
+    .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+    .empty { color: var(--muted); text-align: center; padding: 20px; }
+    .msg { color: var(--accent); font-size: 0.9rem; min-height: 1.2em; }
+    .print-only { display: none; }
+
+    @media print {
+      body { background: #fff; color: #000; padding: 0; }
+      .no-print { display: none !important; }
+      .print-only { display: block; }
+      .card { border: none; padding: 0; margin-bottom: 14px; }
+      .stat { background: none; border: 1px solid #999; }
+      th, td { border-bottom: 1px solid #999; }
+      .sign { display: flex; gap: 40px; margin-top: 40px; }
+      .sign div { flex: 1; border-top: 1px solid #000; padding-top: 4px; font-size: 0.9rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Petty Cash Tracker</h1>
+  <p class="sub no-print">Enter each claim below. The page adds up the totals for you. Everything is saved on this device only.</p>
+  <p class="print-only" id="printHeading"></p>
+
+  <!-- 1. Float and month -->
+  <div class="card no-print">
+    <h2>1. Petty cash float and month</h2>
+    <div class="grid">
+      <div>
+        <label for="float">Float for this month (RM)</label>
+        <input id="float" type="number" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 1000.00">
+      </div>
+      <div>
+        <label for="month">Show month</label>
+        <select id="month"></select>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Add a claim -->
+  <div class="card no-print">
+    <h2 id="formTitle">2. Add a claim</h2>
+    <form id="form" autocomplete="off">
+      <div class="grid">
+        <div>
+          <label for="date">Date</label>
+          <input id="date" type="date" required>
+        </div>
+        <div>
+          <label for="staff">Staff name</label>
+          <input id="staff" list="staffList" required placeholder="e.g. Ali">
+          <datalist id="staffList"></datalist>
+        </div>
+        <div>
+          <label for="category">Category</label>
+          <select id="category" required></select>
+        </div>
+        <div>
+          <label for="receipt">Receipt no. (optional)</label>
+          <input id="receipt" placeholder="e.g. R1234">
+        </div>
+        <div class="wide">
+          <label for="desc">Description</label>
+          <input id="desc" required placeholder="e.g. Parking at client site">
+        </div>
+        <div>
+          <label for="amount">Amount (RM)</label>
+          <input id="amount" type="number" step="0.01" min="0.01" inputmode="decimal" required placeholder="0.00">
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button type="submit" id="saveBtn">Add claim</button>
+        <button type="button" class="ghost" id="cancelEdit" hidden>Cancel edit</button>
+        <span class="msg" id="msg"></span>
+      </div>
+    </form>
+  </div>
+
+  <!-- 3. Summary -->
+  <div class="card">
+    <h2>Summary <span id="monthLabel"></span></h2>
+    <div class="stats">
+      <div class="stat"><div class="k">Float</div><div class="v" id="sFloat">RM 0.00</div></div>
+      <div class="stat"><div class="k">Total claims</div><div class="v" id="sTotal">RM 0.00</div></div>
+      <div class="stat"><div class="k">Cash left</div><div class="v" id="sLeft">RM 0.00</div></div>
+      <div class="stat"><div class="k">Number of claims</div><div class="v" id="sCount">0</div></div>
+    </div>
+  </div>
+
+  <div class="two">
+    <div class="card">
+      <h2>Total by staff</h2>
+      <div class="tablebox"><table id="byStaff"></table></div>
+    </div>
+    <div class="card">
+      <h2>Total by category</h2>
+      <div class="tablebox"><table id="byCat"></table></div>
+    </div>
+  </div>
+
+  <!-- 4. List -->
+  <div class="card">
+    <div class="row space" style="margin-bottom:12px">
+      <h2 style="margin:0">All claims</h2>
+      <div class="row no-print">
+        <button type="button" class="ghost" id="exportBtn">Download for Excel</button>
+        <button type="button" class="ghost" id="printBtn">Print</button>
+      </div>
+    </div>
+    <div class="tablebox"><table id="list"></table></div>
+    <div class="sign print-only" id="signBox">
+      <div>Prepared by</div><div>Checked by</div><div>Approved by</div>
+    </div>
+  </div>
+
+  <!-- 5. Backup -->
+  <div class="card no-print">
+    <h2>Backup</h2>
+    <p class="sub" style="margin-bottom:12px">Your claims are kept in this browser only. Download a backup now and then, so you don't lose them if the browser is cleared or you change phone.</p>
+    <div class="row">
+      <button type="button" class="ghost" id="backupBtn">Download backup</button>
+      <button type="button" class="ghost" id="restoreBtn">Restore from backup</button>
+      <input type="file" id="restoreFile" accept=".json,application/json" hidden>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  var KEY = "pettyCash.v1";
+  var CATEGORIES = [
+    "Transport / Toll / Parking",
+    "Meals & Refreshments",
+    "Postage & Courier",
+    "Stationery & Printing",
+    "Repair & Maintenance",
+    "Cleaning & Pantry",
+    "Utilities & Phone",
+    "Others"
+  ];
+
+  // ---------- storage ----------
+  function load() {
+    try {
+      var d = JSON.parse(localStorage.getItem(KEY));
+      if (d && Array.isArray(d.claims)) { d.floats = d.floats || {}; return d; }
+    } catch (e) {}
+    return { claims: [], floats: {} };
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(data)); }
+    catch (e) { flash("Could not save on this device. Please download a backup."); }
+  }
+  var data = load();
+  var editingId = null;
+
+  // ---------- helpers ----------
+  var $ = function (id) { return document.getElementById(id); };
+  function rm(n) {
+    return "RM " + (Number(n) || 0).toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function today() {
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function monthOf(dateStr) { return (dateStr || "").slice(0, 7); }
+  function monthName(ym) {
+    if (ym === "all") return "All months";
+    var p = ym.split("-");
+    return new Date(+p[0], +p[1] - 1, 1).toLocaleDateString("en-MY", { month: "long", year: "numeric" });
+  }
+  function showDate(s) {
+    var p = (s || "").split("-");
+    return p.length === 3 ? p[2] + "/" + p[1] + "/" + p[0] : s;
+  }
+  function cents(n) { return Math.round(Number(n) * 100); }
+  function flash(t) {
+    $("msg").textContent = t;
+    clearTimeout(flash.t);
+    flash.t = setTimeout(function () { $("msg").textContent = ""; }, 3000);
+  }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+  // ---------- setup ----------
+  CATEGORIES.forEach(function (c) {
+    var o = document.createElement("option");
+    o.value = o.textContent = c;
+    $("category").appendChild(o);
+  });
+  $("date").value = today();
+
+  var currentMonth = monthOf(today());
+
+  function fillMonths() {
+    var set = {};
+    set[monthOf(today())] = 1;
+    data.claims.forEach(function (c) { set[monthOf(c.date)] = 1; });
+    var months = Object.keys(set).sort().reverse();
+    var sel = $("month");
+    sel.innerHTML = "";
+    months.concat(["all"]).forEach(function (m) {
+      var o = document.createElement("option");
+      o.value = m;
+      o.textContent = monthName(m);
+      sel.appendChild(o);
+    });
+    if (months.indexOf(currentMonth) === -1 && currentMonth !== "all") currentMonth = months[0];
+    sel.value = currentMonth;
+  }
+
+  function fillStaffList() {
+    var names = {};
+    data.claims.forEach(function (c) { names[c.staff] = 1; });
+    $("staffList").innerHTML = Object.keys(names).sort().map(function (n) {
+      return '<option value="' + esc(n) + '">';
+    }).join("");
+  }
+
+  // ---------- render ----------
+  function visibleClaims() {
+    return data.claims
+      .filter(function (c) { return currentMonth === "all" || monthOf(c.date) === currentMonth; })
+      .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.created - b.created; });
+  }
+
+  function groupTable(el, rows, keyFn, heading) {
+    var sums = {};
+    rows.forEach(function (c) { var k = keyFn(c); sums[k] = (sums[k] || 0) + cents(c.amount); });
+    var keys = Object.keys(sums).sort(function (a, b) { return sums[b] - sums[a]; });
+    if (!keys.length) { el.innerHTML = '<tr><td class="empty">No claims yet</td></tr>'; return; }
+    var total = 0;
+    var body = keys.map(function (k) {
+      total += sums[k];
+      return "<tr><td>" + esc(k) + '</td><td class="num">' + rm(sums[k] / 100) + "</td></tr>";
+    }).join("");
+    el.innerHTML = "<thead><tr><th>" + heading + '</th><th class="num">Amount</th></tr></thead><tbody>' + body +
+      '</tbody><tfoot><tr><td>Total</td><td class="num">' + rm(total / 100) + "</td></tr></tfoot>";
+  }
+
+  function render() {
+    fillMonths();
+    fillStaffList();
+    var rows = visibleClaims();
+    var totalC = rows.reduce(function (s, c) { return s + cents(c.amount); }, 0);
+
+    var floatVal = currentMonth === "all" ? null : data.floats[currentMonth];
+    $("float").disabled = currentMonth === "all";
+    $("float").value = floatVal == null ? "" : floatVal;
+
+    $("monthLabel").textContent = "· " + monthName(currentMonth);
+    $("printHeading").textContent = "Month: " + monthName(currentMonth) + "   ·   Printed " + showDate(today());
+    $("sFloat").textContent = floatVal == null ? "—" : rm(floatVal);
+    $("sTotal").textContent = rm(totalC / 100);
+    if (floatVal == null) {
+      $("sLeft").textContent = "—";
+      $("sLeft").classList.remove("neg");
+    } else {
+      var left = cents(floatVal) - totalC;
+      $("sLeft").textContent = rm(left / 100);
+      $("sLeft").classList.toggle("neg", left < 0);
+    }
+    $("sCount").textContent = rows.length;
+
+    groupTable($("byStaff"), rows, function (c) { return c.staff; }, "Staff");
+    groupTable($("byCat"), rows, function (c) { return c.category; }, "Category");
+
+    var list = $("list");
+    if (!rows.length) {
+      list.innerHTML = '<tr><td class="empty">No claims for this month yet. Add one above.</td></tr>';
+      return;
+    }
+    var body = rows.map(function (c, i) {
+      return "<tr>" +
+        "<td>" + (i + 1) + "</td>" +
+        "<td>" + esc(showDate(c.date)) + "</td>" +
+        "<td>" + esc(c.staff) + "</td>" +
+        "<td>" + esc(c.desc) + (c.receipt ? '<br><small style="color:var(--muted)">Receipt ' + esc(c.receipt) + "</small>" : "") + "</td>" +
+        "<td>" + esc(c.category) + "</td>" +
+        '<td class="num">' + rm(c.amount) + "</td>" +
+        '<td class="no-print" style="white-space:nowrap">' +
+          '<button class="ghost small" data-edit="' + c.id + '">Edit</button> ' +
+          '<button class="danger small" data-del="' + c.id + '">Delete</button>' +
+        "</td></tr>";
+    }).join("");
+    list.innerHTML = "<thead><tr><th>#</th><th>Date</th><th>Staff</th><th>Description</th><th>Category</th>" +
+      '<th class="num">Amount</th><th class="no-print"></th></tr></thead><tbody>' + body +
+      '</tbody><tfoot><tr><td colspan="5">Total</td><td class="num">' + rm(totalC / 100) +
+      '</td><td class="no-print"></td></tr></tfoot>';
+  }
+
+  // ---------- events ----------
+  $("month").addEventListener("change", function () { currentMonth = this.value; render(); });
+
+  $("float").addEventListener("change", function () {
+    if (currentMonth === "all") return;
+    var v = this.value.trim();
+    if (v === "") delete data.floats[currentMonth];
+    else data.floats[currentMonth] = Math.round(parseFloat(v) * 100) / 100;
+    save();
+    render();
+  });
+
+  function resetForm() {
+    editingId = null;
+    $("form").reset();
+    $("date").value = today();
+    $("saveBtn").textContent = "Add claim";
+    $("formTitle").textContent = "2. Add a claim";
+    $("cancelEdit").hidden = true;
+  }
+
+  $("form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var amount = Math.round(parseFloat($("amount").value) * 100) / 100;
+    if (!(amount > 0)) { flash("Please enter an amount more than zero."); return; }
+    var claim = {
+      date: $("date").value,
+      staff: $("staff").value.trim(),
+      category: $("category").value,
+      receipt: $("receipt").value.trim(),
+      desc: $("desc").value.trim(),
+      amount: amount
+    };
+    if (editingId) {
+      var c = data.claims.find(function (x) { return x.id === editingId; });
+      if (c) Object.assign(c, claim);
+      flash("Claim updated.");
+    } else {
+      claim.id = uid();
+      claim.created = Date.now();
+      data.claims.push(claim);
+      flash("Claim added: " + claim.staff + ", " + rm(amount));
+    }
+    currentMonth = monthOf(claim.date);
+    save();
+    var keepDate = $("date").value, keepStaff = $("staff").value;
+    resetForm();
+    $("date").value = keepDate;     // handy when entering many claims from the same day
+    $("staff").value = keepStaff;
+    render();
+    $("desc").focus();
+  });
+
+  $("cancelEdit").addEventListener("click", resetForm);
+
+  $("list").addEventListener("click", function (e) {
+    var id = e.target.getAttribute("data-del");
+    if (id) {
+      var c = data.claims.find(function (x) { return x.id === id; });
+      if (c && confirm("Delete this claim?\n\n" + c.staff + ": " + c.desc + " (" + rm(c.amount) + ")")) {
+        data.claims = data.claims.filter(function (x) { return x.id !== id; });
+        if (editingId === id) resetForm();
+        save();
+        render();
+      }
+      return;
+    }
+    id = e.target.getAttribute("data-edit");
+    if (id) {
+      var c2 = data.claims.find(function (x) { return x.id === id; });
+      if (!c2) return;
+      editingId = id;
+      $("date").value = c2.date;
+      $("staff").value = c2.staff;
+      $("category").value = c2.category;
+      $("receipt").value = c2.receipt || "";
+      $("desc").value = c2.desc;
+      $("amount").value = c2.amount.toFixed(2);
+      $("saveBtn").textContent = "Save changes";
+      $("formTitle").textContent = "2. Edit claim";
+      $("cancelEdit").hidden = false;
+      $("form").scrollIntoView({ behavior: "smooth" });
+    }
+  });
+
+  function download(name, text, type) {
+    var blob = new Blob([text], { type: type });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+
+  $("exportBtn").addEventListener("click", function () {
+    var rows = visibleClaims();
+    if (!rows.length) { alert("There are no claims to download for this month."); return; }
+    var q = function (v) { return '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; };
+    var lines = [["No", "Date", "Staff", "Description", "Category", "Receipt No", "Amount (RM)"].map(q).join(",")];
+    var total = 0;
+    rows.forEach(function (c, i) {
+      total += cents(c.amount);
+      lines.push([i + 1, showDate(c.date), c.staff, c.desc, c.category, c.receipt || "", c.amount.toFixed(2)].map(q).join(","));
+    });
+    lines.push(["", "", "", "", "", "Total", (total / 100).toFixed(2)].map(q).join(","));
+    var name = "petty-cash-" + (currentMonth === "all" ? "all" : currentMonth) + ".csv";
+    download(name, "﻿" + lines.join("\r\n"), "text/csv;charset=utf-8");
+  });
+
+  $("printBtn").addEventListener("click", function () {
+    window.print();
+  });
+
+  $("backupBtn").addEventListener("click", function () {
+    download("petty-cash-backup-" + today() + ".json", JSON.stringify(data, null, 2), "application/json");
+  });
+  $("restoreBtn").addEventListener("click", function () { $("restoreFile").click(); });
+  $("restoreFile").addEventListener("change", function () {
+    var f = this.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function () {
+      try {
+        var d = JSON.parse(r.result);
+        if (!d || !Array.isArray(d.claims)) throw new Error();
+        if (!confirm("Replace the claims on this device with the " + d.claims.length + " claims in the backup?")) return;
+        data = { claims: d.claims, floats: d.floats || {} };
+        save();
+        render();
+        alert("Backup restored.");
+      } catch (e) {
+        alert("Sorry, that file is not a petty cash backup.");
+      }
+    };
+    r.readAsText(f);
+    this.value = "";
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
